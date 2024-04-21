@@ -132,6 +132,7 @@ $container->set('helper', function ($c) {
             $posts = [];
             foreach ($results as $post) {
                 $post['comment_count'] = $this->fetch_first('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', $post['id'])['count'];
+                // 任意のpostに対してそれについているコメントをゲットするクエリ
                 $query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC';
                 if (!$all_comments) {
                     $query .= ' LIMIT 3';
@@ -139,20 +140,25 @@ $container->set('helper', function ($c) {
 
                 $ps = $this->db()->prepare($query);
                 $ps->execute([$post['id']]);
+                // その１つのpostについた全コメントが入ってる
                 $comments = $ps->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($comments as &$comment) {
-                    $comment['user'] = $this->fetch_first('SELECT * FROM `users` WHERE `id` = ?', $comment['user_id']);
+                    // そのコメントは誰が投稿したのかユーザーの情報をゲットする
+                    $comment['user'] = $this->fetch_first('SELECT `account_name` FROM `users` WHERE `id` = ?', $comment['user_id']);
                 }
                 unset($comment);
                 $post['comments'] = array_reverse($comments);
+                // var_dump($post);
+                $post['user'] = ['account_name' => $post['account_name']];
+                $posts[] = $post;
 
-                $post['user'] = $this->fetch_first('SELECT * FROM `users` WHERE `id` = ?', $post['user_id']);
-                if ($post['user']['del_flg'] == 0) {
-                    $posts[] = $post;
-                }
-                if (count($posts) >= POSTS_PER_PAGE) {
-                    break;
-                }
+                // $post['user'] = $this->fetch_first('SELECT `account_name`, `del_flg` FROM `users` WHERE `id` = ?', $post['user_id']);
+                // if ($post['user']['del_flg'] == 0) {
+                //     $posts[] = $post;
+                // }
+                // if (count($posts) >= POSTS_PER_PAGE) {
+                //     break;
+                // }
             }
             return $posts;
         }
@@ -297,11 +303,23 @@ $app->get('/', function (Request $request, Response $response) {
     $me = $this->get('helper')->get_session_user();
 
     $db = $this->get('db');
-    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC');
+    // $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC');
+    // $ps = $db->prepare('SELECT `p.id`, `p.user_id`, `p.mime`, `p.created_at`, u.account_name 
+    //                     FROM `posts` AS p JOIN `users` AS u ON (p.user_id=u.id)
+    //                     WHERE u.del_flag =0 
+    //                     ORDER BY `p.created_at` DESC
+    //                     LIMIT #{POSTS_PER_PAGE}');
+    $ps = $db->prepare('SELECT p.id, p.user_id, p.body, p.mime, p.created_at, u.account_name
+                        FROM posts AS p JOIN users AS u ON p.user_id = u.id
+                        WHERE u.del_flg = 0
+                        ORDER BY p.created_at DESC
+                        LIMIT :POSTS_PER_PAGE
+                        ');
+    $ps->bindValue(':POSTS_PER_PAGE', POSTS_PER_PAGE, PDO::PARAM_INT);
     $ps->execute();
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
-
+    // var_dump($posts);
     return $this->get('view')->render($response, 'index.php', [
         'posts' => $posts,
         'me' => $me,
@@ -311,10 +329,21 @@ $app->get('/', function (Request $request, Response $response) {
 
 $app->get('/posts', function (Request $request, Response $response) {
     $params = $request->getQueryParams();
+    // var_dump($params);
     $max_created_at = $params['max_created_at'] ?? null;
     $db = $this->get('db');
-    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC');
-    $ps->execute([$max_created_at === null ? null : $max_created_at]);
+    // $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC LIMIT 20');
+    $ps = $db->prepare('SELECT p.id, p.user_id, p.body, p.mime, p.created_at, u.account_name
+                        FROM posts AS p JOIN users AS u ON p.user_id = u.id
+                        WHERE u.del_flg = 0
+                        AND p.created_at <= ?
+                        ORDER BY p.created_at DESC
+                        LIMIT ?');
+    // LIMITの値を整数として明示的にバインドする
+    $ps->bindValue(1, $max_created_at);
+    $ps->bindValue(2, POSTS_PER_PAGE, PDO::PARAM_INT);
+    $ps->execute(); 
+    // $ps->execute([$max_created_at]);
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
 
@@ -494,8 +523,17 @@ $app->get('/@{account_name}', function (Request $request, Response $response, $a
         return $response->withStatus(404);
     }
 
-    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC');
-    $ps->execute([$user['id']]);
+    // $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC');
+    $ps = $db->prepare('SELECT p.id, p.user_id, p.body, p.mime, p.created_at, u.account_name
+                        FROM posts AS p JOIN users AS u ON p.user_id = u.id
+                        WHERE u.del_flg = 0
+                        AND p.user_id = :userId
+                        ORDER BY p.created_at DESC
+                        LIMIT :POSTS_PER_PAGE');
+    $ps->bindValue(':userId', $user['id'], PDO::PARAM_INT);
+    $ps->bindValue(':POSTS_PER_PAGE', POSTS_PER_PAGE, PDO::PARAM_INT);
+    $ps->execute();
+    // $ps->execute([$user['id']]);
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
 
