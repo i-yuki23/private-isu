@@ -1,81 +1,72 @@
-# 社内ISUCON 当日マニュアル
+# Internal ISUCON Competition Day Manual
 
-## 当日の流れ
+## Schedule for the Day
 
-  * 12:30 競技開始
-  * 19:00 競技終了
+  * 12:30 Start of competition
+  * 19:00 End of competition
 
-## ポータルサイト
+## Portal Site
 
-上記リンクを開いてください。計測ツールで測定したスコアはこのポータルに送られ、集計結果を見ることができます。
+Please open the link above. Scores measured by the scoring tool will be sent to this portal, where you can view the aggregated results.
 
 ## Getting Started
 
-はじめに以下の操作を行い、問題なく動くかを確認して下さい。
+Initially, perform the following actions to check if everything is working properly.
 
-### 2. 起動したEC2インスタンスに `ubuntu` ユーザで SSH ログインする
+### 2. SSH into the launched EC2 instance as the `ubuntu` user
 
-例:
-
+Example:
 ```
-ssh -i <設定した鍵ファイル> ubuntu@xx.xx.xx.xx
+ssh -i <configured key file> ubuntu@xx.xx.xx.xx
 ```
 
-ログイン後に`isucon`ユーザーでログインできるようにすることをおすすめします。
+After logging in, it is recommended to ensure that you can log in as the `isucon` user.
 
-### 3. アプリケーションの動作を確認
+### 3. Verify the application is working
 
-EC2インスタンスのパブリックIPアドレスにブラウザでアクセスし、動作を確認してください。以下の画面が表示されるはずです。
+Access the EC2 instance's public IP address with a browser to verify operation. The following screen should be displayed.
 
-例として、「アカウント名」は `mary`、 「パスワード」は `marymary` を入力することでログインが行えます。
+For example, logging in with the username `mary` and password `marymary` should grant you access.
 
-ブラウザでアクセスできない場合、主催者に確認してください。
+If you cannot access it through a browser, please check with the organizer.
 
-### 4. 負荷走行を実行
+### 4. Perform a load test
 
-この操作後、ポータルにて、あなたのチームのスコアが反映されているか確認して下さい。
+After this operation, check the portal to see if your team's score is reflected.
 
-### ディレクトリ構成
+### Directory Structure
 
-参考実装のアプリケーションコードおよび、スコア計測用プログラムは `/home/isucon` ディレクトリ以下にあります。
-
+The reference implementation application code and the scoring program are located in the `/home/isucon` directory.
 ```
 /home/isucon/
-  ├ env.sh       # アプリケーション用の環境変数
-  └ private_isu/
-     ├ webapp/    # 各言語の参考実装
-     ├ manual.md    # 本マニュアル
-     └ public_manual.md # 当日レギュレーション
+├ env.sh # Environment variables for the application
+└ private_isu/
+├ webapp/ # Reference implementations in various languages
+├ manual.md # This manual
+└ public_manual.md # Competition day regulations
 ```
 
-### 参考実装の言語切り替え方法
+### How to Switch Implementation Languages
 
-参考実装の言語はRuby/PHP/Goが用意されており、初期状態ではRubyの実装が起動しています。
+The reference implementation is available in Ruby, PHP, and Go, with Ruby being the default at startup.
 
-80番ポートでアクセスできるので、ブラウザから動作確認をすることができます。
+You can verify operation from a browser as it is accessible on port 80.
 
-プログラムの詳しい起動方法は、 /etc/systemd/system/isu-ruby.service を参照してください。
+For detailed startup procedures, please refer to `/etc/systemd/system/isu-ruby.service`.
 
-エラーなどの出力については、
-
+To view logs or errors, use:
 ```
 $ sudo journalctl -f -u isu-ruby
 ```
 
-などで見ることができます。
-
-また、unicornの再起動は、
-
+Restarting unicorn can be done with:
 ```
 $ sudo systemctl restart isu-ruby
 ```
 
-などですることができます。
+#### Switching to PHP
 
-#### PHPへの切り替え方
-
-起動する実装をPHPに切り替えるには、以下の操作を行います。
-
+To switch the running implementation to PHP, perform the following:
 ```
 $ sudo systemctl stop isu-ruby
 $ sudo systemctl disable isu-ruby
@@ -86,21 +77,17 @@ $ sudo systemctl start php8.1-fpm
 $ sudo systemctl enable php8.1-fpm
 ```
 
-php-fpmの設定については、/etc/php/8.1/fpm/以下にあります。
+Configuration for php-fpm can be found in `/etc/php/8.1/fpm/`.
 
-エラーなどの出力については、
-
+To view logs or errors, use:
 ```
 $ sudo journalctl -f -u php8.1-fpm
 $ sudo tail -f /var/log/nginx/error.log
 ```
 
-などで見ることができます。
+#### Switching to Go
 
-#### Goへの切り替え方
-
-起動する実装をGoに切り替えるには、以下の操作を行います。
-
+To switch the running implementation to Go, perform the following:
 ```
 $ sudo systemctl stop isu-ruby
 $ sudo systemctl disable isu-ruby
@@ -108,66 +95,54 @@ $ sudo systemctl start isu-go
 $ sudo systemctl enable isu-go
 ```
 
-プログラムの詳しい起動方法は、 /etc/systemd/system/isu-go.service を参照してください。
+For detailed startup procedures, please refer to `/etc/systemd/system/isu-go.service`.
 
-エラーなどの出力については、
-
+To view logs or errors, use:
 ```
 $ sudo journalctl -f -u isu-go
 ```
 
-などで見ることができます。
-
 ### MySQL
 
-3306番ポートでMySQLが起動しています。初期状態では以下のユーザが設定されています。
+MySQL is running on port 3306. Initially, the following user is configured:
 
-  * ユーザ名: `isuconp`, パスワード: `isuconp`
+  * Username: `isuconp`, Password: `isuconp`
 
 ### memcached
 
-11211番ポートでmemcachedが起動しています。
+memcached is running on port 11211.
 
+## Detailed Rules
 
-## ルール詳細
+[Internal ISUCON Competition Day Regulations](/public_manual.md)
 
-[社内ISUCON 当日レギュレーション](/public_manual.md)
+If there is any inconsistency between the competition day regulations and this manual, the descriptions in this manual take precedence.
 
-なお、当日レギュレーションと本マニュアルの記述に矛盾がある場合、本マニュアルの記述が優先されます。
+### About Scoring
 
-### スコアについて
-
-基本スコアは以下のルールで算出されます。
-
+The basic score is calculated as follows:
 ```
-成功レスポンス数(GET) x 1 + 成功レスポンス数(POST) x 2 + 成功レスポンス数(画像投稿) x 5 - (サーバエラー(error)レスポンス数 x 10 + リクエスト失敗(exception)数 x 20 + 遅延POSTレスポンス数 x 100)
+Successful responses count(GET) x 1 + Successful responses count(POST) x 2 + Successful image post responses count x 5 - (Server error(error) responses count x 10 + Request failures(exception) count x 20 + Delayed POST response count x 100)
 ```
 
-ただし、基本スコアと計測ツールの出すスコアが異なっている場合は、計測ツールの出すスコアが優先されます。
+However, if there is a discrepancy between the basic score and the score issued by the scoring tool, the score from the scoring tool will take precedence.
 
-#### 減点対象
+#### Deduction Criteria
 
-以下の事項に抵触すると減点対象となります。
+Points will be deducted for the following:
 
-  * 存在するべきファイルへのアクセスが失敗する
-  * リクエスト失敗（通信エラー等）が発生する
-  * サーバエラー(Status 5xx)・クライアントエラー(Status 4xx)をアプリケーションが返す
-  * 他、計測ツールのチェッカが検出したケース
+  * Failure to access a file that should exist
+  * Request failures (e.g., communication errors)
+  * Server errors (Status 5xx) and client errors (Status 4xx) returned by the application
+  * Other cases detected by the measurement tool's checker
 
-#### 注意事項
+#### Note
 
-  * リダイレクトはリダイレクト先が正しいレスポンスを返せた場合に、1回レスポンスが成功したと判断します
-  * POSTの失敗は大幅な減点対象です
+  * Redirects count as a successful response if the redirected destination returns the correct response
+  * POST failures are subject to significant deductions
 
-### 制約事項
+### Constraints
 
-以下の事項に抵触すると点数が無効となります。
+Scores will be invalidated if any of the following conditions are met:
 
-  * GET /initialize へのレスポンスが10秒以内に終わらない
-  * 存在するべきDOM要素がレスポンスHTMLに存在しない
-
-## 当日サポートについて
-
-競技中、別途アナウンスされるSlackのチャットルームにて、サポートを行います。
-
-ルールについてや、基本的なトラブルの質問にはお答えできますが、計測ツールおよびアプリケーションに関する質問には原則として回答しません。予めご了承ください。
+  * Response to GET /initialize takes longer than 10 seconds
